@@ -2,6 +2,7 @@
  * This plugin adds possibility to group flags series in accordance with selected time range
  * */
 (function (H) {
+    var baseAddPointMethod;
     var baseSetDataMethod;
     /**
      * key - chart serie
@@ -166,7 +167,8 @@
             baseSetDataMethod.apply(serie, [newPoints, false, false]);
         } else {
             newPoints.forEach(function (point) {
-                serie.addPoint(point, false);
+              //baseAddPointMethod.apply(serie,[point,false])
+              serie.addPoint(point, false);
             });
         }
     };
@@ -297,5 +299,43 @@
 
 
     });
+    H.wrap(H.Series.prototype, 'addPoint', function (proceed, options, redraw, shift, animation) {
+        var opts = this.chart.options.flagsGrouping;
+        if (this.type === 'flags' && opts && pointsGroups.get(this).isAddedToChart ) {
+          var groups = pointsGroups.get(this).pointsLists;
+          var j;
+          for(j=0;j<opts.groupings.length;j++){
+            var points = groups[j];
+            var groupTimeSpan = opts.groupings[j].groupTimeSpan;
+            var finded = false;
+            var i = 0;
+            for(i=0;i<points.length;i++){
+              var point = points[i].initialPoints[0];
+              if(i==0 && point.x>options.x){
+                break;
+              }
+              if(point.x<=options.x && (point.x+groupTimeSpan)>options.x){
+                finded = true;
+                points[i].initialPoints.push(options);
+                points[i].title = (parseInt(points[i].title) + 1)+'';
+                break;
+              }
+            }
+            if(!finded){
+              points.push({
+                  x: options.x,
+                  title: '1',
+                  text: options.text,
+                  initialPoints: [options]
+              })
+            }
+          }
+          groups[j].push(options);
+          pointsGroups.get(this).isAddedToChart = false;
+          this.translate();
+          return;
+        }
+        baseAddPointMethod = proceed;
+        proceed.apply(this, Array.prototype.slice.call(arguments, 1));
+    })
 }(Highcharts));
-
