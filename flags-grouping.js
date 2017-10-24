@@ -167,8 +167,13 @@
             baseSetDataMethod.apply(serie, [newPoints, false, false]);
         } else {
             newPoints.forEach(function (point) {
-              //baseAddPointMethod.apply(serie,[point,false])
-              serie.addPoint(point, false);
+              if(baseAddPointMethod){
+                baseAddPointMethod.apply(serie,[point,false]);
+              }else{
+                serie.addPoint(point, false);
+              }
+
+
             });
         }
     };
@@ -301,7 +306,7 @@
     });
     H.wrap(H.Series.prototype, 'addPoint', function (proceed, options, redraw, shift, animation) {
         var opts = this.chart.options.flagsGrouping;
-        if (this.type === 'flags' && opts && pointsGroups.get(this).isAddedToChart ) {
+        if (this.type === 'flags' && opts && pointsGroups.get(this) && pointsGroups.get(this).isAddedToChart ) {
           var groups = pointsGroups.get(this).pointsLists;
           var j;
           for(j=0;j<opts.groupings.length;j++){
@@ -332,10 +337,41 @@
           }
           groups[j].push(options);
           pointsGroups.get(this).isAddedToChart = false;
+          //TODO see why not update grouped flag text when point/series updated;
           this.translate();
           return;
         }
         baseAddPointMethod = proceed;
         proceed.apply(this, Array.prototype.slice.call(arguments, 1));
+    });
+    H.wrap(H.Series.prototype, 'removePoint', function(proceed, i, redraw, animation){
+      var opts = this.chart.options.flagsGrouping;
+      if (this.type === 'flags' && opts && pointsGroups.get(this) && pointsGroups.get(this).isAddedToChart ){
+        var groups = pointsGroups.get(this).pointsLists;
+        var extremes = this.xAxis.getExtremes();
+        var groupNumber = getAppropriateGroupNumber(this.chart, extremes.max - extremes.min);
+
+        var j;
+        var point = groups[groups.length-1][i];
+        for(j=0;j<opts.groupings.length;j++){
+            var points = groups[j];
+            for(i=0;i<points.length;i++){
+              var index = points[i].initialPoints.indexOf(point);
+              if(index!=-1){
+                points[i].initialPoints.splice(i,1);
+                points[i].title = parseInt(points[i].title)-1;
+                if(j==groupNumber){
+                  //TODO see why not update grouped flag text when point/series updated;
+                  this.points[i].update(points[i]);
+                }
+                break;
+              }
+            }
+        }
+        groups[groups.length-1].splice(i,1);
+
+      }else{
+        proceed.apply(this, Array.prototype.slice(arguments,1));
+      }
     })
 }(Highcharts));
