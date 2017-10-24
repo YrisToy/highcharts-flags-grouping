@@ -308,6 +308,8 @@
         var opts = this.chart.options.flagsGrouping;
         if (this.type === 'flags' && opts && pointsGroups.get(this) && pointsGroups.get(this).isAddedToChart ) {
           var groups = pointsGroups.get(this).pointsLists;
+          var extremes = this.xAxis.getExtremes();
+          var groupNumber = getAppropriateGroupNumber(this.chart, extremes.max - extremes.min);
           var j;
           for(j=0;j<opts.groupings.length;j++){
             var points = groups[j];
@@ -323,22 +325,26 @@
                 finded = true;
                 points[i].initialPoints.push(options);
                 points[i].title = (parseInt(points[i].title) + 1)+'';
+                if(j==groupNumber){
+                  this.points[i].update(points[i]);
+                }
                 break;
               }
             }
             if(!finded){
-              points.push({
+              var groupPoint = {
                   x: options.x,
                   title: '1',
                   text: options.text,
                   initialPoints: [options]
-              })
+              };
+              points.push(groupPoint);
+              if(j==groupNumber){
+                proceed.apply(this, Array.prototype.slpice.call(arguments, 0,2,groupPoint));
+              }
             }
           }
           groups[j].push(options);
-          pointsGroups.get(this).isAddedToChart = false;
-          //TODO see why not update grouped flag text when point/series updated;
-          this.translate();
           return;
         }
         baseAddPointMethod = proceed;
@@ -361,7 +367,6 @@
                 points[i].initialPoints.splice(i,1);
                 points[i].title = parseInt(points[i].title)-1;
                 if(j==groupNumber){
-                  //TODO see why not update grouped flag text when point/series updated;
                   this.points[i].update(points[i]);
                 }
                 break;
